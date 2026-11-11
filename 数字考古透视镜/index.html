@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>数字考古透视镜</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="main-layout">
+        <div class="content-area">
+            <h1>汉字的"二进制"密码</h1>
+            <p>汉字是中华文明的瑰宝，每一个方块字都蕴含着深厚的历史与文化。从甲骨文的刻画，到金文的铸造，再到小篆、隶书、楷书的演变，汉字承载着民族的记忆。当这些古老的符号进入现代计算机，它们经历了一场奇妙的二进制变身。</p>
+            <p>例如<span class="char-node">中</span>字，它不仅仅是一个简单的符号，更是中华民族精神的象征。在计算机的世界里，它被赋予了唯一的数字身份，通过精密的编码规则，在数字洪流中穿梭，实现了跨越时空的传播与永生。</p>
+            <p>又如<span class="char-node">龙</span>字，作为中华民族的图腾，象征着力量与祥瑞。在数字世界中，它以独特的编码形式存在，承载着深厚的文化内涵。而<span class="char-node">码</span>字代表着代码与数字，是现代信息技术的基础。<span class="char-node">字</span>字则是汉字体系的统称，每一个汉字都有一段属于自己的故事。</p>
+            <p>这个"数字考古透视镜"将带你深入汉字的微观世界，揭示它在计算机内部的"二进制密码"。从活字印刷的"一个字一个印"，到计算机的"一个字一个编码"，人类在信息记录的道路上不断进化。让我们一起探索这段奇妙之旅。</p>
+            <p>在数字化考古的过程中，我们发现汉字的每一个笔画在计算机底层都对应着一组精准的电信号。这种从"形"到"数"的跨越，不仅是技术的进步，更是文化的延续。通过 UTF-8 编码，汉字得以在全球互联网上自由穿梭，不再受限于地域与设备的隔阂。</p>
+            <p>当我们再次审视这些方块字时，不妨想象它们在 CPU 内部跳动的样子。每一个 0 和 1 的组合，都是对文明的一次致敬。让我们继续深入，探索更多汉字背后的数字奥秘。</p>
+        </div>
+        <div class="ai-panel">
+            <div class="ai-header"><div class="ai-status-dot"></div><span class="ai-title">AI 实时考古笔记</span></div>
+            <div class="ai-content" id="ai-log"><div class="ai-note-card"><strong>系统就绪</strong>数字化考古引擎已启动。请移动透视镜扫描左侧汉字，见证汉字如何通过"三步法"变身进入计算机世界。</div></div>
+        </div>
+    </div>
+    <div id="magnifying-glass"><div class="scan-line"></div><div class="glass-content"><div class="anim-step active" id="step-0"><p class="step-label">考古对象</p><p class="step-val" id="val-char">✨</p></div><div class="anim-step" id="step-1"><p class="step-label">第一步：查户口 (Unicode)</p><p class="unicode-val" id="val-unicode">U+0000</p></div><div class="anim-step" id="step-2"><p class="step-label">第二步：变数字 (Binary)</p><div class="binary-grid" id="val-binary"></div></div><div class="anim-step" id="step-3"><p class="step-label">第三步：装箱子 (UTF-8)</p><div class="utf8-boxes" id="val-utf8"></div></div></div></div>
+    <div class="bottom-hint">✨ 移动透视镜扫描汉字，体验"三步变身法"</div>
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+:root {
+  color-scheme: dark;
+
+  /* 色板：延续原版霓虹考古风 */
+  --c-bg: #060910;
+  --c-bg-soft: #0b1120;
+  --c-panel: rgba(16, 24, 42, 0.72);
+  --c-panel-strong: rgba(13, 19, 34, 0.94);
+  --c-line: rgba(0, 240, 255, 0.14);
+  --c-line-strong: rgba(0, 240, 255, 0.34);
+  --c-cyan: #00f0ff;
+  --c-cyan-soft: rgba(0, 240, 255, 0.12);
+  --c-gold: #ffcc00;
+  --c-gold-soft: rgba(255, 204, 0, 0.12);
+  --c-magenta: #ff4fd8;
+  --c-green: #00ff88;
+  --c-red: #ff5d73;
+  --c-text: #e9f2fb;
+  --c-text-dim: rgba(233, 242, 251, 0.68);
+  --c-text-faint: rgba(233, 242, 251, 0.58);
+
+  /* 字体 */
+  --font-sans: 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-serif: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', serif;
+  --font-mono: 'Cascadia Code', 'JetBrains Mono', Consolas, 'Courier New', monospace;
+
+  /* 尺寸与层级 */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --header-h: 64px;
+  --tabbar-h: 62px;
+
+  /* 阴影与缓动 */
+  --shadow-panel: 0 18px 50px rgba(0, 0, 0, 0.45);
+  --shadow-cyan: 0 0 24px rgba(0, 240, 255, 0.25);
+  --shadow-gold: 0 0 24px rgba(255, 204, 0, 0.22);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --z-header: 100;
+  --z-tabbar: 100;
+  --z-overlay: 190;
+  --z-drawer: 200;
+  --z-lens: 300;
+}
