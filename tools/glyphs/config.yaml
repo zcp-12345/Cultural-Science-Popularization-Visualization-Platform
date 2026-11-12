@@ -1,0 +1,50 @@
+# 汉字演变时间轴 · 真实字形构建配置
+# 用法：python tools/glyphs/build_glyphs.py
+#
+# 关键约定：oracle/bronze/seal/clerical/regular 五栏查「繁体」字形（龍/馬），
+# 仅 simplified 查「简体」本身（龙/马）。中/日/水 无繁简之分，两者同形。
+
+characters:
+  - char: 中
+    query: { oracle: 中, bronze: 中, seal: 中, clerical: 中, regular: 中, simplified: 中 }
+  - char: 龙
+    query: { oracle: 龍, bronze: 龍, seal: 龍, clerical: 龍, regular: 龍, simplified: 龙 }
+  - char: 马
+    query: { oracle: 馬, bronze: 馬, seal: 馬, clerical: 馬, regular: 馬, simplified: 马 }
+  - char: 日
+    query: { oracle: 日, bronze: 日, seal: 日, clerical: 日, regular: 日, simplified: 日 }
+  - char: 水
+    query: { oracle: 水, bronze: 水, seal: 水, clerical: 水, regular: 水, simplified: 水 }
+
+# 时期 → 来源层
+sources:
+  oracle:
+    layer: oracle
+    kind: svg
+    license: "CC0 1.0"
+    attribution: "汉典甲骨文摹本 / 中研院小學堂 · CC0 1.0"
+  bronze:
+    layer: bronze
+    kind: svg
+    license: "CC0 1.0"
+    attribution: "汉典金文实例 / 中研院小學堂 · CC0 1.0"
+  seal:
+    layer: seal
+    kind: svg
+    license: "CC0 1.0"
+    attribution: "汉典《说文》小篆 · CC0 1.0"
+  clerical:
+    layer: clerical
+    kind: svg
+    license: "CC0 1.0"
+    attribution: "汉典隶书实例 / 中研院小學堂 · CC0 1.0"
+  regular:
+    kind: font
+    font: "LXGWWenKai-Regular.ttf"
+    license: "OFL 1.1"
+    attribution: "霞鹜文楷 LXGW WenKai · SIL OFL 1.1"
+  simplified:
+    layer: songti
+    kind: svg
+    license: "OFL 1.1"
+    attribution: "思源宋体 Noto Serif SC · SIL OFL 1.1"

@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import EvolutionTimeline from '@/components/timeline/EvolutionTimeline.vue'
+import GlyphFigure from '@/components/timeline/GlyphFigure.vue'
 import { DEFAULT_CHARACTER, ERAS, TIMELINE_CHARACTERS } from '@/data/eras'
 
 const selectedChar = ref(DEFAULT_CHARACTER)
@@ -64,9 +65,9 @@ function selectEra(id: string) {
 
     <section class="detail">
       <article class="glyph-card panel">
-        <div class="glyph" :class="`glyph--${era.id}`">
-          <span class="glyph__char">{{ character.char }}</span>
-          <span class="glyph__badge">现代字形示意</span>
+        <div class="glyph">
+          <GlyphFigure :char="character.char" :era="era.id" :size="108" />
+          <span class="glyph__badge">真实古文字形</span>
         </div>
         <div class="glyph-card__meta">
           <span class="badge">{{ era.dynasty }}</span>
@@ -89,7 +90,7 @@ function selectEra(id: string) {
     <section class="strip panel">
       <header class="strip__head">
         <h2>「{{ character.char }}」的字形示意</h2>
-        <span class="badge badge--muted">现代字形示意 · 非真实拓片</span>
+        <span class="badge badge--muted">已接入授权真实字形 · CC0 / OFL</span>
       </header>
       <div class="strip__row">
         <button
@@ -100,7 +101,7 @@ function selectEra(id: string) {
           @click="selectEra(item.id)"
         >
           <span class="strip__era">{{ item.name }}</span>
-          <span class="strip__char" :class="`glyph--${item.id}`">{{ character.char }}</span>
+          <GlyphFigure :char="character.char" :era="item.id" :size="44" />
           <span class="strip__period">{{ item.period }}</span>
         </button>
       </div>
@@ -108,8 +109,9 @@ function selectEra(id: string) {
 
     <footer class="footnote">
       <p>
-        字形图样当前为示意占位（按书体风格着色渲染）。真实的甲骨、金文、小篆字形需要拓片或开放许可字体素材，将在确认授权后以 SVG
-        接入，路径约定为 <code>public/glyphs/{字}/{时期}.svg</code>。
+        字形为授权真实字形：甲骨、金文、小篆、隶书来自汉典与中研院小學堂（CC0）摹本，楷书来自霞鹜文楷、简体来自思源宋体（均 SIL
+        OFL）。逐字来源见 <code>public/glyphs/CREDITS.md</code> 与 <code>manifest.json</code>，由
+        <code>tools/glyphs/build_glyphs.py</code> 生成。
       </p>
     </footer>
   </div>
@@ -293,15 +295,6 @@ function selectEra(id: string) {
   mask-image: radial-gradient(circle, #000 20%, transparent 72%);
 }
 
-.glyph__char {
-  position: relative;
-  z-index: 1;
-  font-family: var(--font-serif);
-  font-size: 108px;
-  font-weight: 700;
-  line-height: 1;
-}
-
 .glyph__badge {
   position: absolute;
   right: 10px;
@@ -314,36 +307,6 @@ function selectEra(id: string) {
   color: rgba(233, 242, 251, 0.5);
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.glyph--oracle .glyph__char {
-  color: #d8a25b;
-  text-shadow: 0 0 26px rgba(216, 162, 91, 0.4);
-}
-
-.glyph--bronze .glyph__char {
-  color: #b98a4e;
-  text-shadow: 0 0 26px rgba(185, 138, 78, 0.4);
-}
-
-.glyph--seal .glyph__char {
-  color: #8fd3c7;
-  text-shadow: 0 0 26px rgba(143, 211, 199, 0.36);
-}
-
-.glyph--clerical .glyph__char {
-  color: #e0b85c;
-  text-shadow: 0 0 26px rgba(224, 184, 92, 0.38);
-}
-
-.glyph--regular .glyph__char {
-  color: #e9f2fb;
-  text-shadow: 0 0 26px rgba(233, 242, 251, 0.3);
-}
-
-.glyph--simplified .glyph__char {
-  color: #7fe9ff;
-  text-shadow: 0 0 28px rgba(0, 240, 255, 0.4);
 }
 
 .glyph-card__meta {
@@ -470,13 +433,6 @@ function selectEra(id: string) {
   font-size: 10.5px;
   letter-spacing: 0.08em;
   color: var(--c-text-faint);
-}
-
-.strip__char {
-  font-family: var(--font-serif);
-  font-size: 40px;
-  font-weight: 700;
-  line-height: 1.1;
 }
 
 .strip__period {
