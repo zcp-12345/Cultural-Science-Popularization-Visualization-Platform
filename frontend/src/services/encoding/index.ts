@@ -1,5 +1,6 @@
 import { encodeLegacy } from './legacy'
 import { planeNameOf, planeOf, unicodeBlockOf } from './unicodeBlocks'
+import { apiFetch } from '@/services/api'
 import type {
   CharDescription,
   EncodingAggregate,
@@ -126,6 +127,25 @@ export function summarizeText(text: string): TextSummary {
     gbk: aggregate('GBK', descriptions, (d) => d.legacy.gbk.bytes),
     big5: aggregate('Big5', descriptions, (d) => d.legacy.big5.bytes),
   }
+}
+
+/**
+ * 在线调用后端 Python codecs（权威口径）。失败抛错，由调用方回退本地 describeChar。
+ * 对应 backend/app/api/routes/encoding.py 的 POST /encoding/describe。
+ */
+export async function describeCharRemote(char: string): Promise<CharDescription> {
+  return apiFetch<CharDescription>('/encoding/describe', {
+    method: 'POST',
+    body: JSON.stringify({ char }),
+  })
+}
+
+/** 在线调用后端整段文本编码汇总（权威口径），失败由调用方回退本地 summarizeText。 */
+export async function summarizeTextRemote(text: string): Promise<TextSummary> {
+  return apiFetch<TextSummary>('/encoding/summarize', {
+    method: 'POST',
+    body: JSON.stringify({ text }),
+  })
 }
 
 export { unicodeBlockOf, planeOf, planeNameOf }

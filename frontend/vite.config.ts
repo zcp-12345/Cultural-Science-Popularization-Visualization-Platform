@@ -11,6 +11,14 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // 开发期把 /api 代理到本地 FastAPI（backend/，uvicorn :8000）。
+    // 也可改由 .env 的 VITE_API_BASE_URL 直连，走 CORS。
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
   },
   test: {
     environment: 'node',

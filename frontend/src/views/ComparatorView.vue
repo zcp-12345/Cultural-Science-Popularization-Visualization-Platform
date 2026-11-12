@@ -3,9 +3,9 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import EncodingChart from '@/components/comparator/EncodingChart.vue'
-import { describeChar, ENCODING_LABELS, formatHexBytes, summarizeText } from '@/services/encoding'
+import { describeChar, describeCharRemote, ENCODING_LABELS, formatHexBytes, summarizeText, summarizeTextRemote } from '@/services/encoding'
 import { useUserStore } from '@/stores/user'
-import type { CharDescription, LegacyEncodingId } from '@/types/encoding'
+import type { CharDescription, LegacyEncodingId, TextSummary } from '@/types/encoding'
 
 const route = useRoute()
 const user = useUserStore()
@@ -18,17 +18,42 @@ const copiedKey = ref('')
 const samples = ['中', '龙', '龍', '镕', '𠮷', 'A']
 
 const chars = computed(() => Array.from(text.value))
-const descriptions = computed<CharDescription[]>(() => chars.value.map((char) => describeChar(char)))
+const descriptions = ref<CharDescription[]>([])
+const summary = ref<TextSummary | null>(null)
+const usingRemote = ref(false)
 const selected = computed<CharDescription | null>(() => descriptions.value[selectedIndex.value] ?? null)
-const summary = computed(() => summarizeText(text.value))
 
-const summaryRows = computed(() => [
-  summary.value.utf8,
-  summary.value.utf16,
-  summary.value.gb2312,
-  summary.value.gbk,
-  summary.value.big5,
-])
+// 远程优先、本地兜底：本地先即时渲染，后端 Python codecs 结果到达后覆盖。
+let refreshSeq = 0
+
+async function refresh() {
+  const seq = ++refreshSeq
+  const currentChars = chars.value
+  const currentText = text.value
+
+  descriptions.value = currentChars.map(describeChar)
+  summary.value = summarizeText(currentText)
+  usingRemote.value = false
+
+  try {
+    const [remoteDescriptions, remoteSummary] = await Promise.all([
+      Promise.all(currentChars.map(describeCharRemote)),
+      summarizeTextRemote(currentText),
+    ])
+    if (seq !== refreshSeq) return // 丢弃过期结果
+    descriptions.value = remoteDescriptions
+    summary.value = remoteSummary
+    usingRemote.value = true
+  } catch {
+    // 后端不可达：保留本地兜底结果
+  }
+}
+
+const summaryRows = computed(() => {
+  const current = summary.value
+  if (!current) return []
+  return [current.utf8, current.utf16, current.gb2312, current.gbk, current.big5]
+})
 
 const legacyCards = computed(() => {
   const current = selected.value
@@ -78,11 +103,16 @@ const utf16Note = computed(() => {
 let copyTimer: number | undefined
 let recordTimer: number | undefined
 
-watch(text, () => {
-  selectedIndex.value = 0
-  window.clearTimeout(recordTimer)
-  recordTimer = window.setTimeout(() => user.recordEncoding(), 900)
-})
+watch(
+  text,
+  () => {
+    selectedIndex.value = 0
+    window.clearTimeout(recordTimer)
+    recordTimer = window.setTimeout(() => user.recordEncoding(), 900)
+    void refresh()
+  },
+  { immediate: true },
+)
 
 async function copy(value: string, key: string) {
   try {
@@ -115,7 +145,7 @@ onBeforeUnmount(() => {
   <div class="comparator page">
     <header class="page-head">
       <div>
-        <span class="badge">Phase 1 · 浏览器本地计算</span>
+        <span class="badge">Phase 2 · Python codecs 权威编码</span>
         <h1>编码对比器</h1>
         <p>
           同一个汉字，在 Unicode 中只有一个码位；写成 UTF-8、UTF-16、GB2312、GBK、Big5 时，会得到完全不同的字节。输入任意汉字，逐位查看它从「码位」到「字节」的转换。
@@ -169,6 +199,16 @@ onBeforeUnmount(() => {
       <section class="detail-grid">
         <article class="char-card panel">
           <div class="char-card__glyph">{{ selected.char }}</div>
+          <button
+            class="char-card__fav"
+            :class="{ 'char-card__fav--active': user.isFavorite(selected.char) }"
+            type="button"
+            :aria-pressed="user.isFavorite(selected.char)"
+            :aria-label="user.isFavorite(selected.char) ? `取消收藏 ${selected.char}` : `收藏 ${selected.char}`"
+            @click="user.toggleFavorite(selected.char)"
+          >
+            <AppIcon name="heart" :size="18" :filled="user.isFavorite(selected.char)" />
+          </button>
           <div class="char-card__meta">
             <span class="badge">Unicode 码位</span>
             <strong class="mono char-card__code">U+{{ selected.unicodeHex }}</strong>
@@ -289,7 +329,7 @@ onBeforeUnmount(() => {
             <h2>整段文本的编码开销</h2>
             <p>共 {{ chars.length }} 个字符 · UTF-16 按小端字节统计</p>
           </div>
-          <span class="badge badge--muted">MOCK / 本地计算</span>
+          <span class="badge badge--muted">{{ usingRemote ? '后端 Python codecs' : '本地兜底 · 离线' }}</span>
         </header>
 
         <div class="table-wrap">
@@ -324,9 +364,9 @@ onBeforeUnmount(() => {
 
     <footer class="footnote">
       <p>
-        数据说明：Phase 1 由浏览器本地计算，其中 GB2312 收录范围以 Python codecs 生成的权威字符集判定，UTF-8 / UTF-16 / GBK / Big5 用 TextDecoder
-        反向索引；Phase 2 起改由 FastAPI + Python codecs 统一提供。GB2312 / GBK / Big5 均为传统双字节字符集，覆盖范围不同，出现「不支持」本身就是编码史的现场证据。浏览器实现的
-        Big5 通常包含 HKSCS 增补字符，覆盖范围可能大于传统 Big5。
+        数据说明：编码结果优先由后端 FastAPI + Python codecs 提供（权威口径），后端不可达时自动回退本地计算（离线兜底）。GB2312 / GBK / Big5
+        均为传统双字节字符集，覆盖范围不同，出现「不支持」本身就是编码史的现场证据。Python 的 Big5 为传统 Big5（不含 HKSCS 增补），因此「龙」等简体字通常无编码；浏览器
+        Big5 解码器含 HKSCS，覆盖范围更大。
       </p>
     </footer>
   </div>
@@ -505,10 +545,41 @@ onBeforeUnmount(() => {
 }
 
 .char-card {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 22px;
   padding: 22px;
+}
+
+.char-card__fav {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--c-text-faint);
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.char-card__fav:hover {
+  color: var(--c-gold);
+  border-color: rgba(255, 204, 0, 0.4);
+}
+
+.char-card__fav--active {
+  color: var(--c-gold);
+  border-color: rgba(255, 204, 0, 0.42);
+  box-shadow: 0 0 14px rgba(255, 204, 0, 0.18);
 }
 
 .char-card__glyph {

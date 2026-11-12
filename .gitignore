@@ -20,3 +20,13 @@ _plan_extracted.txt
 # 覆盖率与类型产物
 coverage/
 *.tsbuildinfo
+
+# Python（backend/ 与 tools/）
+.venv/
+__pycache__/
+.pytest_cache/
+*.db
+*.egg-info/
+
+# 第三方字形/字体源（上游 git 仓库，重新构建时按 CREDITS.md 再 clone，不随仓库分发）
+assets/glyphs-src/

@@ -1,12 +1,19 @@
 <script setup lang="ts">
-import { onErrorCaptured, ref } from 'vue'
+import { onErrorCaptured, onMounted, ref } from 'vue'
 import { RouterView } from 'vue-router'
 import AiChatDrawer from '@/components/ai/AiChatDrawer.vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import MobileTabBar from '@/components/layout/MobileTabBar.vue'
 import { useUiStore } from '@/stores/ui'
+import { useUserStore } from '@/stores/user'
 
 const ui = useUiStore()
+const user = useUserStore()
+
+// 启动时尝试用 refresh cookie 恢复登录态（后端未启动则静默保持未登录）
+onMounted(() => {
+  void user.bootstrap()
+})
 
 // 全局错误边界：捕获后代组件的渲染 / 生命周期错误，给出可恢复的降级页
 const fatalError = ref<string | null>(null)

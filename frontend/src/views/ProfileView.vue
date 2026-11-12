@@ -24,8 +24,6 @@ const modules = [
   { name: 'AI 考古助手', progress: 20 },
 ]
 
-const favorites = ['中', '龙', '码', '字', '水']
-
 const initial = computed(() => user.profile?.name.slice(0, 1).toUpperCase() ?? '?')
 const joinedLabel = computed(() =>
   user.profile ? new Date(user.profile.joinedAt).toLocaleDateString('zh-CN') : '',
@@ -82,9 +80,9 @@ function switchMode(next: 'login' | 'register') {
   <div class="profile page">
     <header class="page-head">
       <div>
-        <span class="badge badge--gold">Phase 2 · 接入 JWT 用户系统</span>
+        <span class="badge badge--gold">Phase 2 · JWT 用户系统已接入</span>
         <h1>用户中心</h1>
-        <p>把每一次透视、每一次编码查询留下来。当前为 UI 骨架，账号与数据均为本地 mock。</p>
+        <p>把每一次透视、每一次编码查询留下来。账号由 FastAPI + JWT 提供，学习统计与收藏已持久化到后端。</p>
       </div>
       <span class="page-head__mark" aria-hidden="true">
         <AppIcon name="user" :size="34" />
@@ -96,8 +94,8 @@ function switchMode(next: 'login' | 'register') {
       <article class="auth__intro panel">
         <h2>把每一次考古留下来</h2>
         <p>
-          登录后可以保存扫描记录、收藏汉字、查看学习进度。Phase 2 将由 FastAPI + PostgreSQL + JWT
-          接管，本页表单结构即为后端接口的界面契约。
+          登录后可以保存扫描记录、收藏汉字、查看学习进度。账号由后端 FastAPI 持久化（密码仅存哈希），
+          刷新凭证存 HttpOnly Cookie，access token 仅存内存。
         </p>
         <ul>
           <li><AppIcon name="book" :size="16" /><span>扫描历史与编码查询记录</span></li>
@@ -106,7 +104,7 @@ function switchMode(next: 'login' | 'register') {
         </ul>
         <div class="auth__notice">
           <AppIcon name="bulb" :size="16" />
-          <span>演示模式：任意有效邮箱 + 至少 6 位密码即可登录，不会上传任何数据。</span>
+          <span>真实账号：注册后由后端持久化，密码仅存哈希，任何密钥都不会进前端。</span>
         </div>
       </article>
 
@@ -173,7 +171,7 @@ function switchMode(next: 'login' | 'register') {
       <section class="profile-head panel">
         <div class="avatar" aria-hidden="true">{{ initial }}</div>
         <div class="profile-head__meta">
-          <span class="badge">本地 mock 账号</span>
+          <span class="badge">已登录</span>
           <h2>{{ user.profile?.name }}</h2>
           <p>{{ user.profile?.email }} · 加入于 {{ joinedLabel }}</p>
         </div>
@@ -223,20 +221,29 @@ function switchMode(next: 'login' | 'register') {
         <section class="favorites panel">
           <header class="card-head">
             <h2>收藏的汉字</h2>
-            <span class="badge badge--muted">MOCK</span>
+            <span class="badge badge--gold">已同步</span>
           </header>
-          <div class="favorites__row">
-            <RouterLink
-              v-for="char in favorites"
-              :key="char"
-              :to="{ path: '/comparator', query: { q: char } }"
-              class="favorite"
-              :aria-label="`在编码对比器中打开 ${char}`"
-            >
-              {{ char }}
-            </RouterLink>
+          <div v-if="user.favorites.length" class="favorites__row">
+            <div v-for="char in user.favorites" :key="char" class="favorite">
+              <RouterLink
+                :to="{ path: '/comparator', query: { q: char } }"
+                class="favorite__link"
+                :aria-label="`在编码对比器中打开 ${char}`"
+              >
+                {{ char }}
+              </RouterLink>
+              <button
+                class="favorite__remove"
+                type="button"
+                :aria-label="`取消收藏 ${char}`"
+                @click="user.removeFavorite(char)"
+              >
+                <AppIcon name="close" :size="11" />
+              </button>
+            </div>
           </div>
-          <p>点击汉字，直接跳到编码对比器。</p>
+          <p v-else class="favorites__empty">还没有收藏的汉字——去编码对比器，点字卡右上角的心形把它收进来。</p>
+          <p v-if="user.favorites.length">点击汉字直接跳到编码对比器，点右上角 × 取消收藏。</p>
         </section>
 
         <section class="settings panel">
@@ -260,8 +267,8 @@ function switchMode(next: 'login' | 'register') {
       <div class="phase-banner panel">
         <AppIcon name="bulb" :size="20" />
         <p>
-          <strong>Phase 2 接入点：</strong>用户资料、收藏、学习记录将由 FastAPI + PostgreSQL 提供；前端请求封装已预留在
-          <code>src/services/api</code>，类型定义在 <code>src/types/user.ts</code>。
+          <strong>Phase 2 · M4 已完成：</strong>学习统计与收藏已由后端 FastAPI 持久化（SQLite，按用户隔离）。
+          前端请求封装在 <code>src/services/api</code>，类型定义在 <code>src/types/user.ts</code>。
         </p>
       </div>
     </template>
@@ -658,10 +665,14 @@ function switchMode(next: 'login' | 'register') {
 .favorites__row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
 .favorite {
+  position: relative;
+}
+
+.favorite__link {
   display: grid;
   place-items: center;
   width: 44px;
@@ -672,16 +683,46 @@ function switchMode(next: 'login' | 'register') {
   font-family: var(--font-serif);
   font-size: 21px;
   color: var(--c-gold);
+  text-decoration: none;
   transition:
     transform 0.2s var(--ease-out),
     box-shadow 0.2s ease,
     border-color 0.2s ease;
 }
 
-.favorite:hover {
+.favorite__link:hover {
   transform: translateY(-2px);
   border-color: rgba(255, 204, 0, 0.55);
   box-shadow: 0 0 18px rgba(255, 204, 0, 0.18);
+}
+
+.favorite__remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--c-panel);
+  color: var(--c-text-faint);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.favorite__remove:hover {
+  color: #ffb3bf;
+}
+
+.favorites__empty {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--c-text-faint);
 }
 
 .favorites > p {

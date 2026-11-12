@@ -10,3 +10,9 @@ export interface UserStats {
   encoded: number
   streakDays: number
 }
+
+export type ActivityKind = 'scan' | 'encode'
+
+export interface FavoritesResponse {
+  items: string[]
+}
