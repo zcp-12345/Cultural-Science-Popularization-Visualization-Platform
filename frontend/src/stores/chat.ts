@@ -52,7 +52,7 @@ export const useChatStore = defineStore('chat', () => {
       }
     } catch (error) {
       if (!(error instanceof DOMException && error.name === 'AbortError')) {
-        reply.content += '\n\n（模拟回答中断，请重试）'
+        reply.content += '\n\n（回答中断，请重试）'
       }
     } finally {
       reply.streaming = false

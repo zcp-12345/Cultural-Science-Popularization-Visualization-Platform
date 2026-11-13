@@ -279,7 +279,7 @@ onBeforeUnmount(() => {
     <section class="features">
       <header class="features__head">
         <h2>继续探索</h2>
-        <p>Phase 1 已搭好四个入口，数据暂为 mock，接口已为 Phase 2 预留。</p>
+        <p>四个入口覆盖编码对比、字形演变、AI 问答与用户中心，前端 Vue3 + 后端 FastAPI + AI 层三层架构。</p>
       </header>
       <div class="feature-grid">
         <RouterLink to="/comparator" class="feature panel">
@@ -304,18 +304,18 @@ onBeforeUnmount(() => {
           <span class="feature__icon"><AppIcon name="spark" :size="22" /></span>
           <div class="feature__body">
             <h3>AI 考古助手</h3>
-            <p>关于编码与演变的问答面板，当前为流式 mock，Phase 3 接入 DeepSeek + RAG。</p>
+            <p>关于编码与演变的问答面板，由 DeepSeek + RAG 基于知识库检索流式生成，离线时回退本地回答。</p>
           </div>
-          <span class="feature__tag feature__tag--mock">模拟中</span>
+          <span class="feature__tag">AI 在线</span>
         </button>
 
         <RouterLink to="/profile" class="feature panel">
           <span class="feature__icon"><AppIcon name="user" :size="22" /></span>
           <div class="feature__body">
             <h3>用户中心</h3>
-            <p>学习档案、收藏与进度展示的 UI 骨架，Phase 2 接入 JWT 用户系统。</p>
+            <p>学习档案、收藏与进度的真实用户系统，部分统计图表仍为示意。</p>
           </div>
-          <span class="feature__tag feature__tag--mock">UI 骨架</span>
+          <span class="feature__tag">JWT 登录</span>
         </RouterLink>
       </div>
     </section>
@@ -568,12 +568,6 @@ onBeforeUnmount(() => {
   color: var(--c-cyan);
   background: var(--c-cyan-soft);
   border: 1px solid rgba(0, 240, 255, 0.2);
-}
-
-.feature__tag--mock {
-  color: var(--c-gold);
-  background: var(--c-gold-soft);
-  border-color: rgba(255, 204, 0, 0.24);
 }
 
 .scan-section :deep(.notes) {

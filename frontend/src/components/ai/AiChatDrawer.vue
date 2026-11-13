@@ -136,7 +136,7 @@ onBeforeUnmount(() => {
               </span>
               <div>
                 <h2>AI 考古助手</h2>
-                <p><i class="status-dot"></i>模拟模式 · Phase 1</p>
+                <p><i class="status-dot"></i>在线 · DeepSeek + RAG</p>
               </div>
             </div>
             <div class="ai-drawer__actions">
@@ -172,7 +172,7 @@ onBeforeUnmount(() => {
                 <AppIcon name="lens" :size="14" />
               </span>
               <div class="msg__bubble">
-                <span v-if="message.role === 'assistant'" class="msg__tag">AI 生成 · 模拟</span>
+                <span v-if="message.role === 'assistant'" class="msg__tag">AI 生成</span>
                 <p class="msg__text">{{ message.content }}<span v-if="message.streaming && message.content" class="stream-caret"></span></p>
                 <p v-if="message.streaming && !message.content" class="typing" aria-label="正在输入">
                   <i></i><i></i><i></i>
@@ -225,7 +225,7 @@ onBeforeUnmount(() => {
                 <AppIcon name="send" :size="17" />
               </button>
             </div>
-            <p class="ai-composer__hint">{{ draft.length }}/500 · Enter 发送 · Shift + Enter 换行 · Phase 3 接入 DeepSeek + RAG</p>
+            <p class="ai-composer__hint">{{ draft.length }}/500 · Enter 发送 · Shift + Enter 换行</p>
             <p class="ai-composer__notice">内容由 AI 生成，仅供科普参考，不构成学术结论</p>
           </footer>
         </aside>

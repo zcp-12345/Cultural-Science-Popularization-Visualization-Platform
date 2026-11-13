@@ -1,6 +1,13 @@
 import { describeChar } from '@/services/encoding'
 import { sleep } from '@/services/mock/delay'
+import { parseSse } from '@/services/ai/sse'
 import type { AiContext } from '@/types/ai'
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
+
+// ---------------------------------------------------------------------------
+// 离线兜底（mock）回答：仅在 AI 服务不可达时启用，与 Phase 1 的人工答案保持一致。
+// ---------------------------------------------------------------------------
 
 interface CannedAnswer {
   match: RegExp
@@ -8,7 +15,7 @@ interface CannedAnswer {
 }
 
 const DISCLAIMER =
-  '\n\n> 当前为 Phase 1 模拟回答；Phase 3 接入 DeepSeek + RAG 后，将基于汉字编码与演变知识库的检索结果生成。'
+  '\n\n> 当前为离线兜底回答（未连接 AI 服务）。服务连通后，将由 DeepSeek + RAG 基于知识库检索生成并标注来源。'
 
 const CANNED: CannedAnswer[] = [
   {
@@ -119,13 +126,13 @@ const CANNED: CannedAnswer[] = [
   {
     match: /你是谁|你好|在吗|hi|hello|嗨/i,
     answer:
-      '我是这个产品的 AI 考古助手，当前处于 Phase 1，回答由本地 mock 生成。可以问我汉字编码（Unicode / UTF-8 / GBK / Big5）、字形演变（甲骨文到楷书），或者产品接下来的架构安排。',
+      '我是这个产品的 AI 考古助手。可以问我汉字编码（Unicode / UTF-8 / GBK / Big5）、字形演变（甲骨文到楷书），或者产品接下来的架构安排。当前回答若服务未连通会回退到本地兜底，连通后由 DeepSeek + RAG 生成并标注来源。',
   },
 ]
 
 const FALLBACK = [
   '我在。可以问我汉字编码（Unicode / UTF-8 / GBK / Big5）、字形演变（甲骨文到楷书），或者这个产品接下来的架构安排。',
-  '这个问题更适合 Phase 3 的知识库来回答。现在先用 mock 陪你聊聊编码与演变的基础知识——比如「UTF-8 为什么汉字要占 3 个字节？」',
+  '这个问题更适合知识库来回答。当前先离线陪你聊聊编码与演变的基础知识——比如「UTF-8 为什么汉字要占 3 个字节？」',
 ]
 
 function pickAnswer(question: string, context: AiContext): string {
@@ -138,11 +145,8 @@ function pickAnswer(question: string, context: AiContext): string {
   return `${charLine}${FALLBACK[question.length % FALLBACK.length]}`
 }
 
-/**
- * Phase 1 的流式 mock。Phase 3 将替换为：
- * POST /api/v1/ai/chat（SSE / ReadableStream），保持同样的 AsyncGenerator 接口。
- */
-export async function* streamReply(
+/** 离线兜底：保持 Phase 1 的人工答案，作为 AI 服务不可达时的降级路径。 */
+export async function* mockReply(
   question: string,
   context: AiContext,
   signal: AbortSignal,
@@ -156,5 +160,75 @@ export async function* streamReply(
     const chunk = chars.slice(index, index + 2).join('')
     yield chunk
     await sleep(14 + Math.floor(Math.random() * 26), signal)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 在线主路径：POST /api/v1/ai/chat（SSE），解析后端 token 帧后逐段产出。
+// ---------------------------------------------------------------------------
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError'
+}
+
+async function* streamReplyRemote(
+  question: string,
+  context: AiContext,
+  signal: AbortSignal,
+): AsyncGenerator<string> {
+  const response = await fetch(`${BASE_URL}/ai/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      question,
+      page: context.page,
+      char: context.char ?? null,
+    }),
+    credentials: 'include',
+    signal,
+  })
+
+  if (!response.ok || !response.body) {
+    let detail = ''
+    try {
+      const body = (await response.json()) as { detail?: unknown }
+      if (typeof body.detail === 'string') detail = body.detail
+    } catch {
+      // 无 JSON 错误体，保留默认文案
+    }
+    throw new Error(detail || `AI 服务不可用（${response.status}）`)
+  }
+
+  for await (const event of parseSse(response.body)) {
+    if (event.type === 'token' && event.text) {
+      yield event.text
+    }
+  }
+}
+
+/**
+ * Phase 3 主入口：在线走 SSE，服务不可达时回退离线 mock。
+ * 接口签名与 Phase 1 保持一致，消费方（stores/chat.ts）无需改动。
+ */
+export async function* streamReply(
+  question: string,
+  context: AiContext,
+  signal: AbortSignal,
+): AsyncGenerator<string> {
+  let yieldedRemote = false
+  try {
+    for await (const chunk of streamReplyRemote(question, context, signal)) {
+      yieldedRemote = true
+      yield chunk
+    }
+  } catch (error) {
+    if (isAbortError(error)) throw error
+    // 已产出部分在线 token 后失败：把错误抛给消费方，避免混入 mock 文本
+    if (yieldedRemote) throw error
+    // 尚未产出任何 token 即失败：回退离线 mock
+  }
+
+  if (!yieldedRemote) {
+    yield* mockReply(question, context, signal)
   }
 }
