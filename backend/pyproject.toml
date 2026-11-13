@@ -1,7 +1,7 @@
 [project]
 name = "digital-archaeology-lens-backend"
 version = "0.1.0"
-description = "数字考古透视镜 · Phase 2 后端（FastAPI）"
+description = "数字考古透视镜 · 后端（FastAPI，Phase 2/3）"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",
@@ -12,6 +12,12 @@ dependencies = [
     # M3 用户系统：
     "PyJWT>=2.8",
     "argon2-cffi>=23.1",
+    # Phase 3 AI 层：
+    "langchain>=0.3",
+    "langchain-deepseek>=0.1",
+    "langchain-chroma>=0.1",
+    "langchain-community>=0.3",
+    "fastembed>=0.4",
 ]
 
 [project.optional-dependencies]

@@ -29,6 +29,17 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
     ]
 
+    # AI 层（Phase 3）
+    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_api_key: str = ""
+    deepseek_model: str = "deepseek-chat"
+    ai_enabled: bool = True
+
+    # RAG（Phase 3 M2）
+    rag_top_k: int = 3
+    kb_source: str = "app/kb/docs.json"
+    kb_persist_dir: str = "./chroma_db"
+
 
 @lru_cache
 def get_settings() -> Settings:

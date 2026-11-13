@@ -1,0 +1,43 @@
+"""AI 对话（Phase 3 M1）：POST /ai/chat 以 SSE 流式返回 DeepSeek 增量文本。"""
+import json
+
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
+
+from app.core.config import get_settings
+from app.schemas.ai import ChatRequest
+from app.services import ai as ai_service
+
+router = APIRouter(prefix="/ai", tags=["ai"])
+
+
+def _sse(payload: dict) -> str:
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+@router.post("/chat")
+async def chat(payload: ChatRequest) -> StreamingResponse:
+    question = payload.question.strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="问题不能为空")
+
+    settings = get_settings()
+    if not settings.ai_enabled or not settings.deepseek_api_key:
+        raise HTTPException(status_code=503, detail="AI 服务未启用")
+
+    async def event_stream():
+        try:
+            async for text in ai_service.stream_reply(
+                question[:500], payload.page, payload.char
+            ):
+                yield _sse({"type": "token", "text": text})
+            yield _sse({"type": "done"})
+        except Exception:
+            yield _sse({"type": "token", "text": "\n\n（生成中断，请重试）"})
+            yield _sse({"type": "done"})
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
