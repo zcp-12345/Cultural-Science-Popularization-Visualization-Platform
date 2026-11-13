@@ -59,6 +59,16 @@ def load_docs() -> list[dict]:
     return docs
 
 
+def load_eval() -> list[dict]:
+    """读取 kb/eval.json 的金标准评测集（每条 question → 期望引用 id）。纯函数，便于单测。"""
+    path = Path(get_settings().kb_eval_source)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    items = payload.get("items")
+    if not isinstance(items, list) or not items:
+        raise ValueError(f"金标准评测集为空或格式错误：{path}")
+    return items
+
+
 def _make_embedding():
     from langchain_community.embeddings import FastEmbedEmbeddings
 
@@ -153,10 +163,20 @@ def _rank(
     return ranked
 
 
+# 关键词加分要在比 top_k 更大的候选池上生效：embedding 未进 top-k 但关键词命中的文档
+# 应能被救回。语料规模小，直接取一个足够大的候选池（Chroma 最多返回文档数）再排序截断。
+CANDIDATE_K = 64
+
+
 def retrieve(question: str, top_k: int | None = None) -> list[RetrievedDoc]:
-    """检索 top-k 片段；返回按相似度降序的结果（空列表 = 无命中，应拒答）。"""
+    """检索 top-k 片段；返回按相似度降序的结果（空列表 = 无命中，应拒答）。
+
+    候选池取 ``CANDIDATE_K``（远大于 top_k），让关键词加分能救回 embedding 排名靠后的命中，
+    最后按「关键词加分后的相似度」排序并截断到 top_k。
+    """
     settings = get_settings()
     if top_k is None:
         top_k = settings.rag_top_k
-    results = get_store().similarity_search_with_score(question, k=top_k)
-    return _rank(results, question, settings.rag_sim_threshold)
+    results = get_store().similarity_search_with_score(question, k=CANDIDATE_K)
+    ranked = _rank(results, question, settings.rag_sim_threshold)
+    return ranked[:top_k]

@@ -16,6 +16,12 @@ def _sse(payload: dict) -> str:
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
+def _sources_event(docs) -> str:
+    """把 RAG 命中片段转成 sources 事件（引用 UI 用；顺序即 [n] 编号，与 token 内标注对应）。"""
+    items = [{"id": d.id, "title": d.title, "page": d.page} for d in docs]
+    return _sse({"type": "sources", "items": items})
+
+
 @router.post("/chat")
 async def chat(payload: ChatRequest) -> StreamingResponse:
     question = payload.question.strip()
@@ -33,6 +39,7 @@ async def chat(payload: ChatRequest) -> StreamingResponse:
                 yield _sse({"type": "token", "text": rag.REFUSAL})
                 yield _sse({"type": "done"})
                 return
+            yield _sources_event(docs)
             async for text in ai_service.stream_reply(
                 question[:500], payload.page, payload.char, docs=docs
             ):

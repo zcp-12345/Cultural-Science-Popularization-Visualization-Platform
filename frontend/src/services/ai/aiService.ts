@@ -1,7 +1,7 @@
 import { describeChar } from '@/services/encoding'
 import { sleep } from '@/services/mock/delay'
 import { parseSse } from '@/services/ai/sse'
-import type { AiContext } from '@/types/ai'
+import type { AiContext, ChatSource } from '@/types/ai'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
@@ -175,6 +175,7 @@ async function* streamReplyRemote(
   question: string,
   context: AiContext,
   signal: AbortSignal,
+  onSources?: (sources: ChatSource[]) => void,
 ): AsyncGenerator<string> {
   const response = await fetch(`${BASE_URL}/ai/chat`, {
     method: 'POST',
@@ -202,22 +203,26 @@ async function* streamReplyRemote(
   for await (const event of parseSse(response.body)) {
     if (event.type === 'token' && event.text) {
       yield event.text
+    } else if (event.type === 'sources') {
+      onSources?.(event.items)
     }
   }
 }
 
 /**
  * Phase 3 主入口：在线走 SSE，服务不可达时回退离线 mock。
- * 接口签名与 Phase 1 保持一致，消费方（stores/chat.ts）无需改动。
+ * 前三个参数与 Phase 1 保持一致；可选 `onSources` 回调用于接收 RAG 引用来源
+ * （在线命中时先于 token 回调，离线 mock 无引用，不会触发）。
  */
 export async function* streamReply(
   question: string,
   context: AiContext,
   signal: AbortSignal,
+  onSources?: (sources: ChatSource[]) => void,
 ): AsyncGenerator<string> {
   let yieldedRemote = false
   try {
-    for await (const chunk of streamReplyRemote(question, context, signal)) {
+    for await (const chunk of streamReplyRemote(question, context, signal, onSources)) {
       yieldedRemote = true
       yield chunk
     }

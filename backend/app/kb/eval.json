@@ -1,0 +1,26 @@
+{
+  "items": [
+    { "question": "UTF-8 为什么汉字占 3 个字节？", "expect_ids": ["utf8-bytes"] },
+    { "question": "GB2312 和 GBK 有什么区别？", "expect_ids": ["gb-standards"] },
+    { "question": "浏览器能直接编码 GBK 或 Big5 吗？", "expect_ids": ["gbk-browser-decoder"] },
+    { "question": "Unicode 和 UTF-8 到底有什么区别？", "expect_ids": ["unicode-vs-utf8"] },
+    { "question": "甲骨文是什么时候被发现的？", "expect_ids": ["oracle-bone"] },
+    { "question": "简体字和繁体字是什么关系？", "expect_ids": ["simplified-chinese"] },
+    { "question": "「码」在 Big5 里为什么没有编码？", "expect_ids": ["big5-traditional"] },
+    { "question": "时间轴为什么只选六段，不放行书和草书？", "expect_ids": ["timeline-six-stages"] },
+    { "question": "隶变发生在什么时期？", "expect_ids": ["script-evolution"] },
+    { "question": "时间轴为什么不是按真实年代比例排列？", "expect_ids": ["timeline-scale"] },
+    { "question": "为什么一个 emoji 不一定是单个字符？", "expect_ids": ["emoji-grapheme"] },
+    { "question": "𠮷 这类生僻字在 UTF-16 里怎么表示？", "expect_ids": ["surrogate-pairs"] },
+    { "question": "JavaScript 的 length 为什么不等于字符数？", "expect_ids": ["js-string-length"] },
+    { "question": "乱码是怎么产生的？", "expect_ids": ["mojibake"] },
+    { "question": "透视镜的三步变身对应什么？", "expect_ids": ["three-steps"] },
+    { "question": "产品的三层架构是什么？", "expect_ids": ["architecture-rag"] },
+    { "question": "怎么控制 AI 回答不胡编？", "expect_ids": ["credibility"] },
+    { "question": "你是谁？", "expect_ids": ["greeting"] },
+    { "question": "用拓片和字体要注意版权吗？", "expect_ids": ["copyright-materials"] },
+    { "question": "这个产品和汉典有什么区别？", "expect_ids": ["positioning"] },
+    { "question": "现场演示断网了怎么办？", "expect_ids": ["offline-demo"] },
+    { "question": "甲骨文能不能用 OCR 识别？", "expect_ids": ["ocr"] }
+  ]
+}

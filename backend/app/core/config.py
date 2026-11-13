@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     # 检索相似度阈值（cosine，含关键词加分；低于此值视为未命中并拒答）。
     rag_sim_threshold: float = 0.35
     kb_source: str = "app/kb/docs.json"
+    kb_eval_source: str = "app/kb/eval.json"
     kb_persist_dir: str = "./chroma_db"
 
 

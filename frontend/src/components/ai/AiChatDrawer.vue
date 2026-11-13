@@ -177,6 +177,12 @@ onBeforeUnmount(() => {
                 <p v-if="message.streaming && !message.content" class="typing" aria-label="正在输入">
                   <i></i><i></i><i></i>
                 </p>
+                <div v-if="message.role === 'assistant' && message.sources?.length" class="msg__sources">
+                  <span class="msg__sources-label">引用</span>
+                  <span v-for="(source, index) in message.sources" :key="source.id" class="source-chip">
+                    <b>[{{ index + 1 }}]</b> {{ source.title }}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -424,6 +430,40 @@ onBeforeUnmount(() => {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.msg__sources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.msg__sources-label {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--c-text-faint);
+}
+
+.source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--c-cyan);
+  background: rgba(0, 240, 255, 0.06);
+  border: 1px solid rgba(0, 240, 255, 0.16);
+}
+
+.source-chip b {
+  font-weight: 600;
+  color: var(--c-gold);
 }
 
 .stream-caret {

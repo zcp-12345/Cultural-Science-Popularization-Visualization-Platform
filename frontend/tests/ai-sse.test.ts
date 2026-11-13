@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { parseSse, type AiStreamEvent } from '@/services/ai/sse'
 import { streamReply } from '@/services/ai/aiService'
+import type { ChatSource } from '@/types/ai'
 
 // 离线 mock 的逐块 sleep 只是演示用，测试里让它立即返回，避免随机延时拖慢/抖动用例。
 vi.mock('@/services/mock/delay', () => ({ sleep: async () => {} }))
@@ -61,6 +62,41 @@ describe('parseSse', () => {
     ])
   })
 
+  it('解析 sources 引用事件（先于 token）', async () => {
+    const stream = sseResponse([
+      'data: {"type":"sources","items":[{"id":"utf8-bytes","title":"UTF-8 字节规则","page":"编码对比器"}]}\n\n',
+      'data: {"type":"token","text":"你好"}\n\n',
+      'data: {"type":"done"}\n\n',
+    ]).body!
+
+    const events: AiStreamEvent[] = []
+    for await (const event of parseSse(stream)) events.push(event)
+
+    expect(events).toEqual([
+      {
+        type: 'sources',
+        items: [{ id: 'utf8-bytes', title: 'UTF-8 字节规则', page: '编码对比器' }],
+      },
+      { type: 'token', text: '你好' },
+      { type: 'done' },
+    ])
+  })
+
+  it('过滤缺少 id/title 的 sources item', async () => {
+    const stream = sseResponse([
+      'data: {"type":"sources","items":[{"id":"a","title":"有效"},{"id":"b"},{"title":"缺 id"},"坏数据"]}\n\n',
+      'data: {"type":"done"}\n\n',
+    ]).body!
+
+    const events: AiStreamEvent[] = []
+    for await (const event of parseSse(stream)) events.push(event)
+
+    expect(events).toEqual([
+      { type: 'sources', items: [{ id: 'a', title: '有效', page: '' }] },
+      { type: 'done' },
+    ])
+  })
+
   it('忽略未知事件与注释/冒号行', async () => {
     const stream = sseResponse([
       ': keep-alive\n\n',
@@ -99,6 +135,29 @@ describe('streamReply', () => {
         body: JSON.stringify({ question: 'UTF-8 为什么汉字占 3 字节', page: '透视镜', char: null }),
       }),
     )
+  })
+
+  it('在线命中时通过 onSources 回调透出引用来源', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        sseResponse([
+          'data: {"type":"sources","items":[{"id":"utf8-bytes","title":"UTF-8 字节规则","page":"编码对比器"}]}\n\n',
+          'data: {"type":"token","text":"你好"}\n\n',
+          'data: {"type":"done"}\n\n',
+        ]),
+      ),
+    )
+
+    const sources: ChatSource[] = []
+    const onSources = (items: ChatSource[]) => sources.push(...items)
+
+    const out = await collect(
+      streamReply('UTF-8 为什么 3 字节', { page: '透视镜' }, new AbortController().signal, onSources),
+    )
+
+    expect(out).toBe('你好')
+    expect(sources).toEqual([{ id: 'utf8-bytes', title: 'UTF-8 字节规则', page: '编码对比器' }])
   })
 
   it('后端不可用（503）时回退离线 mock', async () => {

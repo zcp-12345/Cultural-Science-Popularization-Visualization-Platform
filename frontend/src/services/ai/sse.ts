@@ -1,16 +1,43 @@
 /**
  * SSE（text/event-stream）解析器，用于消费后端 `POST /ai/chat` 的流式响应。
  *
- * 后端约定：每个事件一帧 `data: {"type":"token","text":"..."}`，
- * 结束帧为 `data: {"type":"done"}`，帧与帧之间以空行分隔。
+ * 后端约定：引用帧 `data: {"type":"sources","items":[...]}` 先于 token 帧发出，
+ * token 帧为 `data: {"type":"token","text":"..."}`，结束帧 `data: {"type":"done"}`，
+ * 帧与帧之间以空行分隔。
  */
-export type AiStreamEvent = { type: 'token'; text: string } | { type: 'done' }
+import type { ChatSource } from '@/types/ai'
+
+export type AiStreamEvent =
+  | { type: 'token'; text: string }
+  | { type: 'sources'; items: ChatSource[] }
+  | { type: 'done' }
+
+function toSource(value: unknown): ChatSource | null {
+  if (typeof value !== 'object' || value === null) return null
+  const record = value as Record<string, unknown>
+  if (typeof record.id !== 'string' || typeof record.title !== 'string') return null
+  return {
+    id: record.id,
+    title: record.title,
+    page: typeof record.page === 'string' ? record.page : '',
+  }
+}
 
 function parseEvent(payload: string): AiStreamEvent | null {
   try {
-    const parsed = JSON.parse(payload) as { type?: unknown; text?: unknown }
+    const parsed = JSON.parse(payload) as {
+      type?: unknown
+      text?: unknown
+      items?: unknown
+    }
     if (parsed.type === 'token' && typeof parsed.text === 'string') {
       return { type: 'token', text: parsed.text }
+    }
+    if (parsed.type === 'sources' && Array.isArray(parsed.items)) {
+      const items = parsed.items
+        .map(toSource)
+        .filter((item): item is ChatSource => item !== null)
+      return { type: 'sources', items }
     }
     if (parsed.type === 'done') {
       return { type: 'done' }

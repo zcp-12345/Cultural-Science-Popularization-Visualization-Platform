@@ -47,7 +47,9 @@ export const useChatStore = defineStore('chat', () => {
     controller = new AbortController()
 
     try {
-      for await (const chunk of streamReply(question, context, controller.signal)) {
+      for await (const chunk of streamReply(question, context, controller.signal, (sources) => {
+        reply.sources = sources
+      })) {
         reply.content += chunk
       }
     } catch (error) {

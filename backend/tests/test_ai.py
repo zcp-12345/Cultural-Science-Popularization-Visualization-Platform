@@ -75,6 +75,32 @@ def test_streams_tokens_with_rag_hit(client, monkeypatch):
     assert 'data: {"type": "done"}' in body
 
 
+def test_streams_sources_event_before_tokens(client, monkeypatch):
+    docs = [
+        rag.RetrievedDoc("utf8-bytes", "UTF-8 字节规则", "编码对比器", "UTF-8 是变长编码", 0.9),
+        rag.RetrievedDoc("mojibake", "乱码排查", "编码对比器", "乱码来自字符集不匹配", 0.8),
+    ]
+
+    async def fake_stream(question, page, char, docs=None):
+        yield "你好"
+
+    monkeypatch.setattr("app.api.routes.ai.ai_service.stream_reply", fake_stream)
+    _patch_retrieve(monkeypatch, docs)
+    _patch_settings(monkeypatch)
+
+    with client.stream("POST", f"{API}/ai/chat", json={"question": "你好"}) as resp:
+        body = "".join(resp.iter_text())
+
+    sources = (
+        'data: {"type": "sources", "items": ['
+        '{"id": "utf8-bytes", "title": "UTF-8 字节规则", "page": "编码对比器"}, '
+        '{"id": "mojibake", "title": "乱码排查", "page": "编码对比器"}]}'
+    )
+    assert sources in body
+    # 引用事件先于任何 token 帧发出，前端才能先拿到来源再流式拼正文
+    assert body.index('"type": "sources"') < body.index('"type": "token"')
+
+
 def test_refuses_when_no_rag_hit(client, monkeypatch):
     _patch_retrieve(monkeypatch, [])
     _patch_settings(monkeypatch)
@@ -84,6 +110,7 @@ def test_refuses_when_no_rag_hit(client, monkeypatch):
 
     assert rag.REFUSAL in body
     assert 'data: {"type": "done"}' in body
+    assert '"type": "sources"' not in body  # 拒答不产生引用事件
 
 
 # --- prompt 组装 ---
@@ -166,3 +193,32 @@ def test_rank_sorts_by_score_desc():
     ]
     ranked = rag._rank(results, "任意", threshold=0.35)
     assert [d.id for d in ranked] == ["top", "low"]
+
+
+def test_retrieve_uses_larger_candidate_pool_and_truncates(monkeypatch):
+    """回归：关键词命中的文档可能在 embedding 的 top-k 之外，候选池必须比 top_k 大。
+
+    真实评测曾漏检「Big5」问题（big5-traditional 未进 embedding top-3 而被提前丢弃）。
+    """
+    seen_k = {}
+
+    class _Store:
+        def similarity_search_with_score(self, query, k):
+            seen_k["k"] = k
+            # big5-traditional 的 embedding 相似度最低（0.1），但命中关键词「Big5」
+            return [
+                (_FakeDoc("无关一", {"id": "x1", "title": "", "page": "", "keywords": []}), 0.9),
+                (_FakeDoc("无关二", {"id": "x2", "title": "", "page": "", "keywords": []}), 0.8),
+                (_FakeDoc("无关三", {"id": "x3", "title": "", "page": "", "keywords": []}), 0.7),
+                (_FakeDoc("Big5 是繁体字符集", {"id": "big5-traditional", "title": "Big5", "page": "", "keywords": ["Big5"]}), 0.9),
+                (_FakeDoc("无关四", {"id": "x4", "title": "", "page": "", "keywords": []}), 0.7),
+            ]
+
+    monkeypatch.setattr("app.services.rag.get_store", lambda: _Store())
+    monkeypatch.setattr(
+        "app.services.rag.get_settings",
+        lambda: _Settings(rag_top_k=3, rag_sim_threshold=0.35),
+    )
+    ranked = rag.retrieve("Big5 里为什么", top_k=3)
+    assert seen_k["k"] > 3  # 候选池比 top_k 大，关键词救回才有可能
+    assert [d.id for d in ranked] == ["big5-traditional"]
