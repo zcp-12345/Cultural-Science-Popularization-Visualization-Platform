@@ -35,13 +35,34 @@ def format_char_context(char: str) -> str:
     return f"最近扫描字符「{char}」的权威编码数据：{'；'.join(facts)}。"
 
 
-def build_prompt(question: str, page: str, char: str | None) -> tuple[str, str]:
-    """组装 (system, user) 两条消息。纯函数，便于单测。"""
+def format_rag_context(docs) -> str:
+    """把检索命中的片段格式化为带编号的资料块，供 prompt 注入。"""
+    lines = []
+    for i, doc in enumerate(docs, 1):
+        lines.append(f"[{i}]《{doc.title}》：{doc.body}")
+    return "\n".join(lines)
+
+
+def build_prompt(
+    question: str,
+    page: str,
+    char: str | None,
+    docs: list | None = None,
+) -> tuple[str, str]:
+    """组装 (system, user) 两条消息。纯函数，便于单测。
+
+    `docs` 为 RAG 检索命中的片段（`rag.RetrievedDoc` 列表）；为空则不加 RAG 上下文。
+    """
     system = SYSTEM_BASE
     if page:
         system += f" 用户当前页面：{page}。"
     if char and len(char) == 1:
         system += f" {format_char_context(char)}"
+    if docs:
+        system += (
+            " 以下是知识库检索到的权威资料，请只依据它们回答并标注来源编号 [n]：\n"
+            + format_rag_context(docs)
+        )
     return system, question
 
 
@@ -82,18 +103,19 @@ async def stream_reply(
     question: str,
     page: str,
     char: str | None,
+    docs: list | None = None,
     llm=None,
 ) -> AsyncGenerator[str, None]:
     """把一条提问变成 DeepSeek 的增量文本流。
 
-    `llm` 可注入假对象（测试用）；为 None 时按 settings 构造真实 ChatDeepSeek。
+    `docs` 为 RAG 检索命中片段，注入 prompt 作为权威资料；`llm` 可注入假对象（测试用）。
     """
     if llm is None:
         llm = _build_llm(get_settings())
 
     from langchain_core.messages import HumanMessage, SystemMessage
 
-    system, user = build_prompt(question, page, char)
+    system, user = build_prompt(question, page, char, docs)
     messages = [SystemMessage(content=system), HumanMessage(content=user)]
 
     async for chunk in llm.astream(messages):

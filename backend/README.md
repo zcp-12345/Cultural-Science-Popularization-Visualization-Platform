@@ -32,3 +32,21 @@ python -m venv .venv
 ## 硬约束
 
 任何密钥只放后端环境变量，不进 `VITE_*`；access token 不落 localStorage；refresh token 走 HttpOnly Cookie；生产 CSP 保持 `default-src 'self'`。
+
+## AI 层（Phase 3）
+
+`POST /api/v1/ai/chat`（SSE，`text/event-stream`）返回 `data: {"type":"token","text":...}` + `data: {"type":"done"}`。无密钥/`AI_ENABLED=false` → 503 JSON；空问题 → 400。RAG 检索命中则注入 DeepSeek 生成并标注 `[n]` 来源，检索无命中直接回固定拒答文案（不调 LLM）。
+
+RAG 索引在首次 `/ai/chat` 时懒加载：读 `app/kb/docs.json`（已审校语料）用 fastembed `BAAI/bge-small-zh-v1.5`（ONNX、免 torch）建 Chroma 索引到 `./chroma_db/`。**改了 docs.json 后删掉 `chroma_db/` 目录即可重建。**
+
+首次运行会自动下载约 130MB 的 embedding 模型。本机两个坑（对应仓库 git 的 schannel 问题）：
+
+```bash
+# 1) 系统 CA 证书损坏 → 显式用 certifi 的证书链
+# 2) 国内直连 HuggingFace 慢/不通 → 走 hf-mirror 镜像
+CA=$(.venv/Scripts/python -c "import certifi; print(certifi.where())")
+SSL_CERT_FILE="$CA" REQUESTS_CA_BUNDLE="$CA" HF_ENDPOINT="https://hf-mirror.com" \
+  .venv/Scripts/uvicorn app.main:app --reload --port 8000
+```
+
+模型下载到 `%TEMP%/fastembed_cache`（与仓库无关）。

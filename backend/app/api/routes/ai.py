@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 from app.core.config import get_settings
 from app.schemas.ai import ChatRequest
 from app.services import ai as ai_service
+from app.services import rag
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -27,8 +28,13 @@ async def chat(payload: ChatRequest) -> StreamingResponse:
 
     async def event_stream():
         try:
+            docs = rag.retrieve(question[:500], top_k=settings.rag_top_k)
+            if not docs:
+                yield _sse({"type": "token", "text": rag.REFUSAL})
+                yield _sse({"type": "done"})
+                return
             async for text in ai_service.stream_reply(
-                question[:500], payload.page, payload.char
+                question[:500], payload.page, payload.char, docs=docs
             ):
                 yield _sse({"type": "token", "text": text})
             yield _sse({"type": "done"})

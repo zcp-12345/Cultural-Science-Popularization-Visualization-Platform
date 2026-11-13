@@ -28,5 +28,8 @@ __pycache__/
 *.db
 *.egg-info/
 
+# RAG 向量索引（由 kb/docs.json 重建，首次 /ai/chat 时懒生成）
+chroma_db/
+
 # 第三方字形/字体源（上游 git 仓库，重新构建时按 CREDITS.md 再 clone，不随仓库分发）
 assets/glyphs-src/
