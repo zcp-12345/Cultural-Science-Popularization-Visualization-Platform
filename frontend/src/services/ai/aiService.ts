@@ -1,7 +1,7 @@
 import { describeChar } from '@/services/encoding'
 import { sleep } from '@/services/mock/delay'
 import { parseSse } from '@/services/ai/sse'
-import type { AiContext, ChatSource } from '@/types/ai'
+import type { AiContext, ChatHistoryEntry, ChatSource } from '@/types/ai'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
@@ -176,6 +176,7 @@ async function* streamReplyRemote(
   context: AiContext,
   signal: AbortSignal,
   onSources?: (sources: ChatSource[]) => void,
+  history: ChatHistoryEntry[] = [],
 ): AsyncGenerator<string> {
   const response = await fetch(`${BASE_URL}/ai/chat`, {
     method: 'POST',
@@ -184,6 +185,7 @@ async function* streamReplyRemote(
       question,
       page: context.page,
       char: context.char ?? null,
+      history,
     }),
     credentials: 'include',
     signal,
@@ -212,17 +214,19 @@ async function* streamReplyRemote(
 /**
  * Phase 3 主入口：在线走 SSE，服务不可达时回退离线 mock。
  * 前三个参数与 Phase 1 保持一致；可选 `onSources` 回调用于接收 RAG 引用来源
- * （在线命中时先于 token 回调，离线 mock 无引用，不会触发）。
+ * （在线命中时先于 token 回调，离线 mock 无引用，不会触发）；可选 `history`
+ * 为最近几轮对话，随请求带给后端实现多轮上下文（Phase 4）。
  */
 export async function* streamReply(
   question: string,
   context: AiContext,
   signal: AbortSignal,
   onSources?: (sources: ChatSource[]) => void,
+  history: ChatHistoryEntry[] = [],
 ): AsyncGenerator<string> {
   let yieldedRemote = false
   try {
-    for await (const chunk of streamReplyRemote(question, context, signal, onSources)) {
+    for await (const chunk of streamReplyRemote(question, context, signal, onSources, history)) {
       yieldedRemote = true
       yield chunk
     }

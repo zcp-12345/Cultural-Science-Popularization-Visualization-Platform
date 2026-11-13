@@ -17,6 +17,7 @@ dependencies = [
     "langchain-deepseek>=0.1",
     "langchain-chroma>=0.1",
     "langchain-community>=0.3",
+    "langchain-openai>=1.0",
     "fastembed>=0.4",
 ]
 

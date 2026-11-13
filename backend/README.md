@@ -56,3 +56,11 @@ SSL_CERT_FILE="$CA" REQUESTS_CA_BUNDLE="$CA" HF_ENDPOINT="https://hf-mirror.com"
 - 语料 `app/kb/eval.json` 是固定 Q&A 评测集（每条 `question → expect_ids`，覆盖全部 22 条语料），配套确定性测试 `tests/test_eval.py`：不下载模型，只校验「评测集与语料 keywords 自洽」——每条期望引用在最坏情况下也能被关键词加分救回。
 - 真机评测跑 `scripts/eval_rag.py`（需先下好模型）：对每条问题用真实向量检索逐条校验引用，输出 PASS/FAIL 并统计召回。改 docs.json 后先删 `chroma_db/` 再跑。
 - 检索的候选池取 `rag.CANDIDATE_K`（远大于 `RAG_TOP_K`）：embedding 未进 top-k 但关键词命中的文档仍能被救回，再按「关键词加分后的相似度」截断到 top-k。
+
+## AI 层（Phase 4）
+
+在 Phase 3 基础上补齐三件事：
+
+- **多轮会话记忆**：`ChatRequest` 新增 `history`（`[{role:"user"|"assistant", content}]`）。前端把最近 6 轮（单条截断到 500 字）随请求带回，后端注入 LLM 消息序列。请求仍无状态、仍不强制鉴权。
+- **云端 embedding**：`EMBEDDING_PROVIDER=cloud` 且配了 `EMBEDDING_API_KEY` 时，用 OpenAI 兼容接口（默认硅基流动 `BAAI/bge-m3`）替代本地 fastembed；未配 key 自动回退本地。**切换 provider 会改变向量维度，需删除 `chroma_db/` 重建索引。**
+- **限流**：`/ai/chat` 按来源 IP 滑动窗口限流（默认 10 次/分钟，`AI_RATE_LIMIT_REQUESTS=0` 关闭；反向代理后信任 `X-Forwarded-For`）。超限返回 429 JSON。

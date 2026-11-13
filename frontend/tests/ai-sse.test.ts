@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { parseSse, type AiStreamEvent } from '@/services/ai/sse'
 import { streamReply } from '@/services/ai/aiService'
-import type { ChatSource } from '@/types/ai'
+import type { ChatHistoryEntry, ChatSource } from '@/types/ai'
 
 // 离线 mock 的逐块 sleep 只是演示用，测试里让它立即返回，避免随机延时拖慢/抖动用例。
 vi.mock('@/services/mock/delay', () => ({ sleep: async () => {} }))
@@ -132,7 +132,43 @@ describe('streamReply', () => {
       '/api/v1/ai/chat',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ question: 'UTF-8 为什么汉字占 3 字节', page: '透视镜', char: null }),
+        body: JSON.stringify({
+          question: 'UTF-8 为什么汉字占 3 字节',
+          page: '透视镜',
+          char: null,
+          history: [],
+        }),
+      }),
+    )
+  })
+
+  it('多轮记忆：把 history 随请求带给后端', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      sseResponse([
+        'data: {"type":"token","text":"好"}\n\n',
+        'data: {"type":"done"}\n\n',
+      ]),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const history: ChatHistoryEntry[] = [
+      { role: 'user', content: 'UTF-8 为什么 3 字节' },
+      { role: 'assistant', content: '因为变长编码' },
+    ]
+
+    await collect(
+      streamReply('那第二个呢', { page: '透视镜' }, new AbortController().signal, undefined, history),
+    )
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/ai/chat',
+      expect.objectContaining({
+        body: JSON.stringify({
+          question: '那第二个呢',
+          page: '透视镜',
+          char: null,
+          history,
+        }),
       }),
     )
   })

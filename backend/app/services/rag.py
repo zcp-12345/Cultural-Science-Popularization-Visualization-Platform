@@ -70,9 +70,34 @@ def load_eval() -> list[dict]:
 
 
 def _make_embedding():
+    """按配置选择 embedding 实现：cloud（OpenAI 兼容，默认硅基流动）优先，本地 fastembed 兜底。"""
+    settings = get_settings()
+    if settings.embedding_provider == "cloud" and settings.embedding_api_key:
+        return _make_cloud_embedding(settings)
+    return _make_local_embedding()
+
+
+def _make_local_embedding():
     from langchain_community.embeddings import FastEmbedEmbeddings
 
     return FastEmbedEmbeddings(model_name=EMBED_MODEL)
+
+
+def _make_cloud_embedding(settings):
+    """构造 OpenAI 兼容的云端 embedding 客户端（硅基流动 / 百炼 / OpenAI 等）。
+
+    用 `base_url`/`api_key` 别名（langchain-openai 的字段为 `openai_api_base`/`openai_api_key`）。
+    关闭 tiktoken 长度校验：第三方模型名（如 ``BAAI/bge-m3``）不被 tiktoken 识别，且本库语料
+    都很短，无需 token 级截断。
+    """
+    from langchain_openai import OpenAIEmbeddings
+
+    return OpenAIEmbeddings(
+        model=settings.embedding_model,
+        api_key=settings.embedding_api_key,
+        base_url=settings.embedding_api_base,
+        check_embedding_ctx_length=False,
+    )
 
 
 def _to_langchain_documents(docs: list[dict]) -> list:

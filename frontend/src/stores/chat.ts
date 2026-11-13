@@ -1,7 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { streamReply } from '@/services/ai/aiService'
-import type { AiContext, ChatMessage } from '@/types/ai'
+import type { AiContext, ChatHistoryEntry, ChatMessage } from '@/types/ai'
+
+// 多轮记忆：只带回最近几轮，且单条截断，与后端上限保持一致。
+const HISTORY_MAX_MESSAGES = 6
+const HISTORY_MAX_CHARS = 500
 
 function welcomeMessage(): ChatMessage {
   return {
@@ -20,10 +24,21 @@ export const useChatStore = defineStore('chat', () => {
   let sequence = 1
   let controller: AbortController | null = null
 
+  function buildHistory(): ChatHistoryEntry[] {
+    // 取当前提问之前的最近几轮完整对话（排除欢迎语与正在流式/空消息）
+    return messages.value
+      .filter((m) => m.id !== 'welcome' && m.content.trim() !== '' && !m.streaming)
+      .slice(-HISTORY_MAX_MESSAGES)
+      .map((m) => ({ role: m.role, content: m.content.trim().slice(0, HISTORY_MAX_CHARS) }))
+  }
+
   async function send(text: string, context: AiContext) {
     // 兜底截断，避免绕过 textarea maxlength 的超长输入（如直接调用 store）
     const question = text.trim().slice(0, 500)
     if (!question || isStreaming.value) return
+
+    // 在追加本轮消息之前快照历史，避免把「当前提问 + 空回复」也带进去
+    const history = buildHistory()
 
     messages.value.push({
       id: `user-${sequence++}`,
@@ -47,9 +62,15 @@ export const useChatStore = defineStore('chat', () => {
     controller = new AbortController()
 
     try {
-      for await (const chunk of streamReply(question, context, controller.signal, (sources) => {
-        reply.sources = sources
-      })) {
+      for await (const chunk of streamReply(
+        question,
+        context,
+        controller.signal,
+        (sources) => {
+          reply.sources = sources
+        },
+        history,
+      )) {
         reply.content += chunk
       }
     } catch (error) {

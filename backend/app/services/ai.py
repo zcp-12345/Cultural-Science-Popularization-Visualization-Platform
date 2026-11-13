@@ -16,6 +16,10 @@ SYSTEM_BASE = (
     "如果基于给定资料回答，请标注来源 [n]；资料没有相关信息就明确说不知道，不要编造。"
 )
 
+# 多轮记忆（Phase 4）：只带最近 N 条历史，且单条截断，避免 prompt 无限膨胀。
+HISTORY_MAX_MESSAGES = 6
+HISTORY_MAX_CHARS = 500
+
 
 def format_char_context(char: str) -> str:
     """用后端权威 `describe_char` 结果，生成注入 prompt 的字符事实。"""
@@ -66,6 +70,31 @@ def build_prompt(
     return system, question
 
 
+def build_history_messages(history: list | None) -> list:
+    """把前端带回的最近几轮对话转成 LangChain 消息序列（按时间顺序，截断条数与长度）。
+
+    纯函数，便于单测。`history` 元素可为 `schemas.ai.ChatTurn`（pydantic）或 dict。
+    """
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    messages: list = []
+    for turn in (history or [])[-HISTORY_MAX_MESSAGES:]:
+        if isinstance(turn, dict):
+            role = turn.get("role")
+            content = turn.get("content")
+        else:
+            role = getattr(turn, "role", None)
+            content = getattr(turn, "content", None)
+        content = (content or "").strip()[:HISTORY_MAX_CHARS]
+        if not content:
+            continue
+        if role == "user":
+            messages.append(HumanMessage(content=content))
+        elif role == "assistant":
+            messages.append(AIMessage(content=content))
+    return messages
+
+
 def _build_llm(settings):
     """懒加载构造 ChatDeepSeek，避免未装 AI 依赖时拖垮整个后端 import。"""
     try:
@@ -105,10 +134,13 @@ async def stream_reply(
     char: str | None,
     docs: list | None = None,
     llm=None,
+    history: list | None = None,
 ) -> AsyncGenerator[str, None]:
     """把一条提问变成 DeepSeek 的增量文本流。
 
-    `docs` 为 RAG 检索命中片段，注入 prompt 作为权威资料；`llm` 可注入假对象（测试用）。
+    `docs` 为 RAG 检索命中片段，注入 prompt 作为权威资料；`llm` 可注入假对象（测试用）；
+    `history` 为前端带回的最近几轮对话（`schemas.ai.ChatTurn` 列表或 dict 列表），
+    按时间顺序注入到当前提问之前，实现多轮上下文。
     """
     if llm is None:
         llm = _build_llm(get_settings())
@@ -116,7 +148,8 @@ async def stream_reply(
     from langchain_core.messages import HumanMessage, SystemMessage
 
     system, user = build_prompt(question, page, char, docs)
-    messages = [SystemMessage(content=system), HumanMessage(content=user)]
+    messages = [SystemMessage(content=system), *build_history_messages(history)]
+    messages.append(HumanMessage(content=user))
 
     async for chunk in llm.astream(messages):
         text = _chunk_text(chunk)

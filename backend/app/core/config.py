@@ -43,6 +43,19 @@ class Settings(BaseSettings):
     kb_eval_source: str = "app/kb/eval.json"
     kb_persist_dir: str = "./chroma_db"
 
+    # 云端 embedding（Phase 4）：provider 为 "cloud" 且配了 key 时用 OpenAI 兼容接口（默认硅基流动），
+    # 否则回退本地 fastembed。切换 provider 后需删除 chroma_db 重建索引（维度不同）。
+    embedding_provider: str = "local"  # "local" | "cloud"
+    embedding_api_base: str = "https://api.siliconflow.cn/v1"
+    embedding_api_key: str = ""
+    embedding_model: str = "BAAI/bge-m3"
+
+    # 限流（Phase 4）：/ai/chat 按 IP 滑动窗口限流。requests<=0 表示不限流。
+    ai_rate_limit_requests: int = 10
+    ai_rate_limit_window_seconds: int = 60
+    # 反向代理后是否信任 X-Forwarded-For 取真实客户端 IP。
+    ai_rate_limit_trust_xff: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

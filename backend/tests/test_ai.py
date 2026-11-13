@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.services import ai as ai_service
-from app.services import rag
+from app.services import rag, rate_limit
 
 API = "/api/v1"
 
@@ -18,6 +18,14 @@ class _Settings:
         self.deepseek_api_key = kw.get("deepseek_api_key", "sk-test")
         self.rag_top_k = kw.get("rag_top_k", 3)
         self.rag_sim_threshold = kw.get("rag_sim_threshold", 0.35)
+        # Phase 4：限流默认关闭（=0），避免测试互相污染；限流测试单独开启。
+        self.ai_rate_limit_requests = kw.get("ai_rate_limit_requests", 0)
+        self.ai_rate_limit_window_seconds = kw.get("ai_rate_limit_window_seconds", 60)
+        self.ai_rate_limit_trust_xff = kw.get("ai_rate_limit_trust_xff", True)
+        self.embedding_provider = kw.get("embedding_provider", "local")
+        self.embedding_api_key = kw.get("embedding_api_key", "")
+        self.embedding_api_base = kw.get("embedding_api_base", "https://api.siliconflow.cn/v1")
+        self.embedding_model = kw.get("embedding_model", "BAAI/bge-m3")
 
 
 @pytest.fixture()
@@ -56,7 +64,7 @@ def test_no_key_returns_503(client, monkeypatch):
 def test_streams_tokens_with_rag_hit(client, monkeypatch):
     docs = [rag.RetrievedDoc("utf8-bytes", "UTF-8 字节规则", "编码对比器", "UTF-8 是变长编码", 0.9)]
 
-    async def fake_stream(question, page, char, docs=None):
+    async def fake_stream(question, page, char, docs=None, history=None):
         assert docs and docs[0].id == "utf8-bytes"
         yield "你好"
         yield "，世界"
@@ -81,7 +89,7 @@ def test_streams_sources_event_before_tokens(client, monkeypatch):
         rag.RetrievedDoc("mojibake", "乱码排查", "编码对比器", "乱码来自字符集不匹配", 0.8),
     ]
 
-    async def fake_stream(question, page, char, docs=None):
+    async def fake_stream(question, page, char, docs=None, history=None):
         yield "你好"
 
     monkeypatch.setattr("app.api.routes.ai.ai_service.stream_reply", fake_stream)
@@ -222,3 +230,97 @@ def test_retrieve_uses_larger_candidate_pool_and_truncates(monkeypatch):
     ranked = rag.retrieve("Big5 里为什么", top_k=3)
     assert seen_k["k"] > 3  # 候选池比 top_k 大，关键词救回才有可能
     assert [d.id for d in ranked] == ["big5-traditional"]
+
+
+# --- 多轮记忆（Phase 4）---
+
+
+def test_build_history_messages_orders_truncates_and_skips():
+    history = [
+        {"role": "user", "content": "问题一"},
+        {"role": "assistant", "content": "回答一"},
+        {"role": "user", "content": "x" * 600},
+        {"role": "assistant", "content": "   "},  # 空内容跳过
+        {"role": "system", "content": "忽略"},  # 未知角色跳过
+    ]
+    msgs = ai_service.build_history_messages(history)
+    assert [type(m).__name__ for m in msgs] == ["HumanMessage", "AIMessage", "HumanMessage"]
+    assert len(msgs[2].content) == ai_service.HISTORY_MAX_CHARS  # 截断到 500
+
+
+def test_build_history_messages_caps_to_last_n():
+    history = [{"role": "user", "content": f"q{i}"} for i in range(10)]
+    msgs = ai_service.build_history_messages(history)
+    assert len(msgs) == ai_service.HISTORY_MAX_MESSAGES  # 只保留最近 6 条
+    assert [m.content for m in msgs] == [f"q{i}" for i in range(4, 10)]
+
+
+def test_passes_history_to_stream_reply(client, monkeypatch):
+    captured = {}
+
+    async def fake_stream(question, page, char, docs=None, history=None):
+        captured["history"] = history
+        yield "好"
+
+    monkeypatch.setattr("app.api.routes.ai.ai_service.stream_reply", fake_stream)
+    _patch_retrieve(monkeypatch, [rag.RetrievedDoc("utf8-bytes", "T", "", "body", 0.9)])
+    _patch_settings(monkeypatch)
+
+    payload = {
+        "question": "那第二个呢？",
+        "history": [
+            {"role": "user", "content": "UTF-8 为什么 3 字节"},
+            {"role": "assistant", "content": "因为变长编码"},
+        ],
+    }
+    with client.stream("POST", f"{API}/ai/chat", json=payload) as resp:
+        "".join(resp.iter_text())
+
+    assert [(t.role, t.content) for t in captured["history"]] == [
+        ("user", "UTF-8 为什么 3 字节"),
+        ("assistant", "因为变长编码"),
+    ]
+
+
+# --- 限流（Phase 4）---
+
+
+def test_rate_limits_by_ip(client, monkeypatch):
+    rate_limit.reset()
+    _patch_retrieve(monkeypatch, [])
+    _patch_settings(monkeypatch, ai_rate_limit_requests=1, ai_rate_limit_window_seconds=60)
+
+    first = client.post(f"{API}/ai/chat", json={"question": "你好"})
+    second = client.post(f"{API}/ai/chat", json={"question": "你好"})
+    assert first.status_code == 200
+    assert second.status_code == 429
+
+
+# --- 云端 embedding（Phase 4）---
+
+
+def test_make_embedding_selects_cloud_when_configured(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.rag.get_settings",
+        lambda: _Settings(embedding_provider="cloud", embedding_api_key="sk-x"),
+    )
+    monkeypatch.setattr("app.services.rag._make_cloud_embedding", lambda s: "CLOUD")
+    monkeypatch.setattr("app.services.rag._make_local_embedding", lambda: "LOCAL")
+    assert rag._make_embedding() == "CLOUD"
+
+
+def test_make_embedding_falls_back_to_local_without_key(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.rag.get_settings",
+        lambda: _Settings(embedding_provider="cloud", embedding_api_key=""),
+    )
+    monkeypatch.setattr("app.services.rag._make_cloud_embedding", lambda s: "CLOUD")
+    monkeypatch.setattr("app.services.rag._make_local_embedding", lambda: "LOCAL")
+    assert rag._make_embedding() == "LOCAL"
+
+
+def test_make_cloud_embedding_uses_openai_compatible_client():
+    settings = _Settings(embedding_provider="cloud", embedding_api_key="sk-x")
+    emb = rag._make_cloud_embedding(settings)
+    assert emb.model == "BAAI/bge-m3"
+    assert emb.check_embedding_ctx_length is False

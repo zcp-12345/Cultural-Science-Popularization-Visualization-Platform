@@ -20,3 +20,9 @@ export interface AiContext {
   page: string
   char?: string
 }
+
+/** 多轮记忆：随请求带回的最近几轮对话（后端注入 LLM 消息序列）。 */
+export interface ChatHistoryEntry {
+  role: ChatRole
+  content: string
+}
