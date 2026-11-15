@@ -14,7 +14,12 @@ connect_args = (
     if settings.database_url.startswith("sqlite")
     else {}
 )
-engine = create_engine(settings.database_url, connect_args=connect_args)
+engine = create_engine(
+    settings.database_url,
+    connect_args=connect_args,
+    # Neon 免费库会休眠，醒来后旧连接可能失效；预检重连避免首请求报错。
+    pool_pre_ping=True,
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
