@@ -1,0 +1,8 @@
+# Caddy 反向代理：自动申请/续期 Let's Encrypt 证书，并把 HTTPS 转发到后端容器。
+# {$API_DOMAIN} 由 docker-compose 注入（= deploy/.env 里的 API_DOMAIN）。
+{$API_DOMAIN} {
+    reverse_proxy backend:8000 {
+        # 关闭响应缓冲，保证 AI 对话的 SSE 流式输出不被延迟
+        flush_interval -1
+    }
+}
