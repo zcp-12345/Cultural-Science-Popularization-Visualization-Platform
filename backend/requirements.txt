@@ -1,0 +1,16 @@
+# Docker/Render 部署用依赖清单，与 pyproject.toml 的 [project].dependencies 保持一致。
+# 本地开发仍用 `pip install -e ".[dev]"`（含 pytest/httpx）。
+fastapi>=0.115
+uvicorn>=0.30
+sqlalchemy>=2.0.36
+pydantic>=2.10
+pydantic-settings>=2.7
+psycopg[binary]>=3.2
+PyJWT>=2.8
+argon2-cffi>=23.1
+langchain>=0.3
+langchain-deepseek>=0.1
+langchain-chroma>=0.1
+langchain-community>=0.3
+langchain-openai>=1.0
+fastembed>=0.4

@@ -40,7 +40,7 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
         max_age=settings.jwt_refresh_ttl_days * 24 * 3600,
         httponly=True,
         secure=settings.cookie_secure,
-        samesite="lax",
+        samesite=settings.cookie_samesite,
         path=_COOKIE_PATH,
     )
 

@@ -14,15 +14,6 @@ const email = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
-const animationEnabled = ref(true)
-const aiHints = ref(true)
-
-const modules = [
-  { name: '透视镜三步动画', progress: 100 },
-  { name: '编码对比器', progress: 72 },
-  { name: '汉字演变时间轴', progress: 45 },
-  { name: 'AI 考古助手', progress: 20 },
-]
 
 const initial = computed(() => user.profile?.name.slice(0, 1).toUpperCase() ?? '?')
 const joinedLabel = computed(() =>
@@ -35,21 +26,12 @@ const statItems = computed(() => [
   { label: '连续学习', value: `${user.stats.streakDays} 天`, hint: '保持考古手感' },
 ])
 
-const recent = computed(() => {
-  if (archaeology.notes.length) {
-    return archaeology.notes.slice(0, 4).map((note) => ({
-      title: `透视「${note.char}」`,
-      detail: `U+${note.unicodeHex} · UTF-8 ${note.utf8Count} 字节`,
-    }))
-  }
-
-  return [
-    { title: '透视「龙」', detail: 'U+9F99 · UTF-8 3 字节' },
-    { title: '对比 GBK / Big5', detail: '「码」不在 Big5 字符集内' },
-    { title: '浏览演变时间轴', detail: '小篆 ·「中」' },
-    { title: '询问 AI 助手', detail: 'UTF-8 为什么占 3 字节' },
-  ]
-})
+const recent = computed(() =>
+  archaeology.notes.slice(0, 4).map((note) => ({
+    title: `透视「${note.char}」`,
+    detail: `U+${note.unicodeHex} · UTF-8 ${note.utf8Count} 字节`,
+  })),
+)
 
 async function submit() {
   if (loading.value) return
@@ -187,35 +169,18 @@ function switchMode(next: 'login' | 'register') {
       </section>
 
       <div class="dashboard">
-        <section class="progress panel">
-          <header class="card-head">
-            <h2>学习进度</h2>
-            <span class="badge badge--muted">MOCK</span>
-          </header>
-          <ul>
-            <li v-for="item in modules" :key="item.name">
-              <div class="progress__row">
-                <span>{{ item.name }}</span>
-                <b class="mono">{{ item.progress }}%</b>
-              </div>
-              <div class="progress__track" role="progressbar" :aria-valuenow="item.progress" aria-valuemin="0" aria-valuemax="100">
-                <span :style="{ width: `${item.progress}%` }"></span>
-              </div>
-            </li>
-          </ul>
-        </section>
-
         <section class="recent panel">
           <header class="card-head">
             <h2>最近活动</h2>
-            <span class="badge badge--muted">{{ archaeology.notes.length ? '实时' : 'MOCK' }}</span>
+            <span class="badge badge--muted">{{ recent.length ? '实时' : '暂无' }}</span>
           </header>
-          <ul>
+          <ul v-if="recent.length">
             <li v-for="item in recent" :key="item.title">
               <strong>{{ item.title }}</strong>
               <span>{{ item.detail }}</span>
             </li>
           </ul>
+          <p v-else class="favorites__empty">还没有活动记录——去透视或对比一个汉字，开始你的考古之旅。</p>
         </section>
 
         <section class="favorites panel">
@@ -245,29 +210,12 @@ function switchMode(next: 'login' | 'register') {
           <p v-else class="favorites__empty">还没有收藏的汉字——去编码对比器，点字卡右上角的心形把它收进来。</p>
           <p v-if="user.favorites.length">点击汉字直接跳到编码对比器，点右上角 × 取消收藏。</p>
         </section>
-
-        <section class="settings panel">
-          <header class="card-head">
-            <h2>偏好设置</h2>
-          </header>
-          <label class="toggle">
-            <span>动画效果</span>
-            <input v-model="animationEnabled" type="checkbox" />
-            <i aria-hidden="true"></i>
-          </label>
-          <label class="toggle">
-            <span>AI 主动提示</span>
-            <input v-model="aiHints" type="checkbox" />
-            <i aria-hidden="true"></i>
-          </label>
-          <p class="settings__note">Phase 2 将持久化到用户配置表。</p>
-        </section>
       </div>
 
       <div class="phase-banner panel">
         <AppIcon name="bulb" :size="20" />
         <p>
-          <strong>Phase 2 · M4 已完成：</strong>学习统计与收藏已由后端 FastAPI 持久化（SQLite，按用户隔离）。
+          <strong>后端已接入：</strong>学习统计与收藏由 FastAPI 持久化（本地 SQLite / 生产 PostgreSQL，按用户隔离）。
           前端请求封装在 <code>src/services/api</code>，类型定义在 <code>src/types/user.ts</code>。
         </p>
       </div>
@@ -594,44 +542,6 @@ function switchMode(next: 'login' | 'register') {
   letter-spacing: 0.06em;
 }
 
-.progress ul {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.progress__row {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 6px;
-  font-size: 12px;
-  color: var(--c-text-dim);
-}
-
-.progress__row b {
-  color: var(--c-cyan);
-  font-weight: 600;
-}
-
-.progress__track {
-  height: 5px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  overflow: hidden;
-}
-
-.progress__track span {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--c-cyan), var(--c-green));
-  box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
-}
-
 .recent ul {
   display: flex;
   flex-direction: column;
@@ -728,71 +638,6 @@ function switchMode(next: 'login' | 'register') {
 .favorites > p {
   margin: 12px 0 0;
   font-size: 11px;
-  color: var(--c-text-faint);
-}
-
-.toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 9px 0;
-  cursor: pointer;
-  font-size: 12.5px;
-  color: var(--c-text-dim);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.toggle:last-of-type {
-  border-bottom: none;
-}
-
-.toggle input {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.toggle i {
-  position: relative;
-  flex-shrink: 0;
-  width: 38px;
-  height: 21px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  transition: background 0.2s ease;
-}
-
-.toggle i::after {
-  content: '';
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: #c9d4e2;
-  transition: transform 0.22s var(--ease-out);
-}
-
-.toggle input:checked + i {
-  background: linear-gradient(120deg, var(--c-cyan), var(--c-green));
-}
-
-.toggle input:checked + i::after {
-  transform: translateX(17px);
-  background: #04141a;
-}
-
-.toggle input:focus-visible + i {
-  outline: 2px solid var(--c-cyan);
-  outline-offset: 2px;
-}
-
-.settings__note {
-  margin: 10px 0 0;
-  font-size: 10.5px;
   color: var(--c-text-faint);
 }
 

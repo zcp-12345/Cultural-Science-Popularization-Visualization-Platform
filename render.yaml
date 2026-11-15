@@ -1,0 +1,34 @@
+# Render Blueprint：把后端 FastAPI 部署为 Web 服务（Docker）。
+# 用法：render.com → New → Blueprint，连接本 GitHub 仓库，Render 自动读取本文件创建服务。
+# 带 sync: false 的变量（密钥）会在创建后提示你在 Render 控制台手动填写。
+services:
+  - type: web
+    name: digital-archaeology-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false # 填 Neon 的 PostgreSQL 连接串：postgresql+psycopg://...?sslmode=require
+      - key: JWT_SECRET
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAMESITE
+        value: "none"
+      - key: CORS_ORIGINS
+        value: '["https://cultural-science-popularization-visualization-platform.pages.dev","https://cultural-science-popularization-visualization-platfo-eitb8q9xo.vercel.app","http://localhost:5173","http://127.0.0.1:5173"]'
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: AI_ENABLED
+        value: "true"
+      - key: EMBEDDING_PROVIDER
+        value: cloud
+      - key: EMBEDDING_API_KEY
+        sync: false
+      - key: AI_RATE_LIMIT_REQUESTS
+        value: "10"
+      - key: AI_RATE_LIMIT_TRUST_XFF
+        value: "true"

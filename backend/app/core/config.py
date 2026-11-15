@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     jwt_refresh_ttl_days: int = 7
     # refresh cookie 是否带 Secure 标记：本地 http 开发置 False，生产 https 置 True。
     cookie_secure: bool = False
+    # refresh cookie 的 SameSite：本地同源开发用 lax；生产跨域（pages.dev → onrender.com）需 none（配 Secure）。
+    cookie_samesite: str = "lax"
 
     # 允许的前端来源（CORS）。如需用环境变量覆盖，请传 JSON 数组字符串。
     cors_origins: list[str] = [

@@ -57,7 +57,7 @@ git -c http.sslBackend=schannel -c http.proxy= -c https.proxy= push
 
 - Cloudflare Pages（对外正式分享用这个）：`https://cultural-science-popularization-visualization-platform.pages.dev`
 - Vercel（国内被墙）：`https://cultural-science-popularization-visualization-platfo-eitb8q9xo.vercel.app`
-- 后端：Phase 2 MVP 本地跑（localhost:8000），尚未部署。
+- 后端：Render（Docker，`render.yaml` + `backend/Dockerfile`）+ Neon PostgreSQL。生产变量由 `render.yaml` 注入；前端用 `VITE_API_BASE_URL` 指向后端。完整部署手册见 `docs/DEPLOYMENT.md`。
 
 ## 进度与协作
 
